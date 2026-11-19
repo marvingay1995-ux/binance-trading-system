@@ -42,6 +42,9 @@ jobs:
       - name: BTC-013 execution realism qualification
         run: |
           python -m btc_engine.qualification --input research-output/BTCUSDT-${{ matrix.interval }}-candles.json --interval ${{ matrix.interval }} --output research-output/BTCUSDT-${{ matrix.interval }}-qualification.json
+      - name: BTC-014 fixed-strategy stability diagnostics
+        run: |
+          python -m btc_engine.walkforward --input research-output/BTCUSDT-${{ matrix.interval }}-candles.json --interval ${{ matrix.interval }} --output research-output/BTCUSDT-${{ matrix.interval }}-walkforward.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
