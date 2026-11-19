@@ -1,0 +1,1 @@
+"""Research-only Binance BTCUSDT engine; no trading API."""
