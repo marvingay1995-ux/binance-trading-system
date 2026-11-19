@@ -39,6 +39,9 @@ jobs:
       - name: BTC-012 trade and risk diagnostics
         run: |
           python -m btc_engine.diagnostics --input research-output/BTCUSDT-${{ matrix.interval }}-candles.json --interval ${{ matrix.interval }} --output research-output/BTCUSDT-${{ matrix.interval }}-diagnostics.json
+      - name: BTC-013 execution realism qualification
+        run: |
+          python -m btc_engine.qualification --input research-output/BTCUSDT-${{ matrix.interval }}-candles.json --interval ${{ matrix.interval }} --output research-output/BTCUSDT-${{ matrix.interval }}-qualification.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
