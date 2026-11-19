@@ -40,9 +40,9 @@ def backtest(candles, interval, config=Config()):
         if cash+qty*bar.open <= day_start*(1-c.daily_loss_limit):
             halted = True
         signal = None
-        if i >= c.slow+1:
-            pf, ps = sma(i-1,c.fast), sma(i-1,c.slow)
-            lf, ls = sma(i,c.fast), sma(i,c.slow)
+        if i >= c.slow+2:
+            pf, ps = sma(i-2,c.fast), sma(i-2,c.slow)
+            lf, ls = sma(i-1,c.fast), sma(i-1,c.slow)
             if pf <= ps and lf > ls: signal = "buy"
             if pf >= ps and lf < ls: signal = "sell"
         if qty and (halted or signal == "sell"):
