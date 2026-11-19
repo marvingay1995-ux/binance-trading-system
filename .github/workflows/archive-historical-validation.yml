@@ -1,0 +1,45 @@
+name: Archive historical validation
+on:
+  workflow_dispatch:
+    inputs:
+      months:
+        description: "Complete archive months"
+        required: true
+        default: "12"
+        type: choice
+        options:
+          - "6"
+          - "12"
+          - "24"
+permissions:
+  contents: read
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        interval: ["1h", "4h"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/btc-009-research-engine
+      - name: Check research modules
+        run: |
+          test -f btc_engine/archive_run.py
+          test -f btc_engine/archive.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Download official public archives and evaluate
+        run: python -m btc_engine.archive_run --interval ${{ matrix.interval }} --months ${{ inputs.months }} --output-dir research-output
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: btcusdt-${{ matrix.interval }}-archive-research
+          path: research-output/
+          if-no-files-found: warn
+          retention-days: 14
