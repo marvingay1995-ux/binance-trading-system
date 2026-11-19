@@ -36,6 +36,9 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Download official public archives and evaluate
         run: python -m btc_engine.archive_run --interval ${{ matrix.interval }} --months ${{ inputs.months }} --output-dir research-output
+      - name: BTC-012 trade and risk diagnostics
+        run: |
+          python -m btc_engine.diagnostics --input research-output/BTCUSDT-${{ matrix.interval }}-candles.json --interval ${{ matrix.interval }} --output research-output/BTCUSDT-${{ matrix.interval }}-diagnostics.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
