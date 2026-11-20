@@ -11,7 +11,7 @@ The 1h SMA 5/20 baseline is rejected for promotion. The 4h SMA 5/20 is a **compa
 ## Preregistered prospective evidence
 
 - Symbol: BTCUSDT Spot; interval: **4h** only
-- Beginning of unseen period: **2026-11-01T00:00:00Z** (strict exact start; historical data through 2026-10-31 was already evaluated)
+- Beginning of preregistered prospective period: **2026-12-01T00:00:00Z** (strict exact start; excludes November 2026 dates preceding registration)
 - Minimum unseen contiguous interval: 60 complete calendar days
 - Strategy: fixed SMA 5/20 with signals only from completed bars, and next-open simulated execution
 - Costs and constraints: frozen in `REGISTERED_CONFIG`; they are **illustrative** and not verified exchange values
@@ -19,7 +19,7 @@ The 1h SMA 5/20 baseline is rejected for promotion. The 4h SMA 5/20 is a **compa
 - Evaluation: return, worst drawdown, transaction costs, closed trades, no-trade and buy-and-hold context, sensitivity and significance review; **not** a paper/live permission
 - Promotion: none automatic. Separate human review and an additional genuinely fresh confirmatory period are required
 
-Because 60 days after 2026-11-01 is 2026-12-31, the minimum forward interval does not exist yet on November 19, 2026. The gate should reject premature submissions.
+Because 60 days after 2026-12-01 is 2027-01-30, the minimum prospective interval does not exist yet on November 20, 2026. The gate should reject premature submissions.
 
 ## Research hypotheses for future separate preregistrations
 
