@@ -1,5 +1,6 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from unittest.mock import patch
 from btc_engine.market import Candle, STEPS
 from btc_engine.forward_gate import (
     admit_forward_candles, FIRST_UNSEEN_MS, MIN_FORWARD_DAYS,
@@ -26,6 +27,16 @@ class ForwardGateTests(unittest.TestCase):
         # Current-date-independent checks can be tested by examining the refusal.
         with self.assertRaises(ValueError):
             admit_forward_candles(sample(), "4h", self.collection, metadata())
+
+    def test_valid_future_forward_period_admitted(self):
+        class FutureClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime(2027, 2, 2, tzinfo=timezone.utc)
+        with patch("btc_engine.forward_gate.datetime", FutureClock):
+            result = admit_forward_candles(sample(), "4h", self.collection, metadata())
+        self.assertEqual(result["gate_status"], "ADMITTED_FOR_FUTURE_RESEARCH_ONLY")
+        self.assertEqual(result["authorization"], "NONE")
 
     def test_previously_seen_data_rejected(self):
         historical = sample(FIRST_UNSEEN_MS-STEP)
