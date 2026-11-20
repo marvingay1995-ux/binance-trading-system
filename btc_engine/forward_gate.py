@@ -13,7 +13,7 @@ from .market import Candle, STEPS, validate
 
 # Earlier BTC-011–014 analysis included archives through 2026-10-31.
 # Prospective evaluation must not reuse those already examined candles.
-FIRST_UNSEEN_MS = 1793491200000  # 2026-11-01T00:00:00Z
+FIRST_UNSEEN_MS = 1796083200000  # 2026-12-01T00:00:00Z
 MIN_FORWARD_DAYS = 60
 REGISTERED_INTERVAL = "4h"
 REGISTERED_SYMBOL = "BTCUSDT"
