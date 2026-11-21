@@ -46,6 +46,19 @@ class BacktestTests(unittest.TestCase):
         with self.assertRaises(ValueError): backtest(sample(),"1h",Config(daily_loss_limit=.03))
     def test_short(self):
         with self.assertRaises(ValueError): backtest(sample(10),"1h")
+    def test_no_same_bar_close_leakage(self):
+        # Changing only the final bar's close cannot change an order
+        # executed at that bar's open.
+        a=[]
+        for i in range(90):
+            price=100+(i%16-8)*3
+            a.append(Candle(i*STEP,price,price+5,price-5,price,5))
+        b=list(a)
+        last=b[-1]
+        b[-1]=Candle(last.time,last.open,10000,last.low,9999,last.volume)
+        ra=backtest(a,"1h")["events"]
+        rb=backtest(b,"1h")["events"]
+        self.assertEqual(ra,rb)
     def test_no_future_signal(self):
         a=sample(); b=list(a); b[-1]=Candle(a[-1].time,1000,1001,999,1000,5)
         self.assertEqual(backtest(a,"1h")["events"],backtest(b,"1h")["events"])
