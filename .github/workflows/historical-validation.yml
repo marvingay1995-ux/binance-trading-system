@@ -24,12 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feature/btc-009-research-engine
-      - name: Confirm research branch and module
+          persist-credentials: false
+      - name: Confirm default-branch source and modules
         run: |
-          test "$(git branch --show-current)" = "feature/btc-009-research-engine"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
           test -f btc_engine/historical_run.py
           test -f btc_engine/evaluate.py
+          git rev-parse HEAD
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
