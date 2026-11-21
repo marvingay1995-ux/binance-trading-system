@@ -34,8 +34,8 @@ class VerifierThreatContractTests(unittest.TestCase):
 
     def test_does_not_claim_real_verification(self):
         r=contract_report()["contract"]
-        self.assertIn("not executed", " ".join(r["limitations"]).lower() if False else "not executed")
-        self.assertIn("not executed",r["limitations"][2].lower())
+        self.assertIn("no real zip/csv parsing", r["limitations"][1].lower())
+        self.assertIn("not an executed negative-control fixture", r["limitations"][2].lower())
 
     def test_approval_denied(self):
         self.assertFalse(any(AUTHORITY.values()))
