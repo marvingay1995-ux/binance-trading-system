@@ -10,6 +10,7 @@ import hashlib
 import io
 import json
 import os
+import errno
 from pathlib import Path
 import stat
 import zipfile
@@ -32,39 +33,67 @@ def _fail(code):
 
 
 def _safe_read(root, filename, limit=MAX_LOCAL_FILE_BYTES):
-    """Best-effort no-follow single-fd read under a controlled CI directory.
+    """Restrict synthetic reads to one regular file under a controlled root.
 
-    Not an independently validated OS sandbox; only use generated fixtures.
+    On POSIX use directory-descriptor-relative no-follow opens. This is
+    defense-in-depth, NOT proof of OS sandboxing or hostile-root safety.
     """
     root = Path(root)
-    if not root.is_absolute() or root.is_symlink() or not root.is_dir():
-        _fail("INPUT_OUTSIDE_ROOT")
     if not isinstance(filename, str) or filename not in ALLOWED_INPUTS:
         _fail("SYNTHETIC_FILE_NOT_ALLOWED")
-    candidate = root / filename
-    if candidate.is_symlink():
-        _fail("INPUT_SYMLINK_OR_SPECIAL")
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    if not root.is_absolute() or not root.is_dir() or root.is_symlink():
+        _fail("INPUT_OUTSIDE_ROOT")
+    if any(parent.is_symlink() for parent in root.parents):
+        _fail("INPUT_OUTSIDE_ROOT")
+    if not isinstance(limit, int) or limit <= 0 or limit > MAX_LOCAL_FILE_BYTES:
+        _fail("RAW_SIZE_EXCEEDED")
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    root_fd = None
+    fd = None
     try:
-        fd = os.open(candidate, flags)
-    except OSError:
-        _fail("INPUT_SYMLINK_OR_SPECIAL")
-    # Check the opened descriptor before wrapping as a buffered binary stream:
-    # fdopen() itself can fail on directories, leaking an uncategorized OSError.
-    if not stat.S_ISREG(os.fstat(fd).st_mode):
-        os.close(fd)
-        _fail("INPUT_SYMLINK_OR_SPECIAL")
-    with os.fdopen(fd, "rb") as stream:
-        size = os.fstat(stream.fileno()).st_size
-        if size > limit:
+        root_fd = os.open(root, directory_flags)
+        if not stat.S_ISDIR(os.fstat(root_fd).st_mode):
+            _fail("INPUT_OUTSIDE_ROOT")
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        if os.name == "posix":
+            fd = os.open(filename, flags, dir_fd=root_fd)
+        else:
+            # Windows cannot use dir_fd here; explicitly no claim of
+            # equivalent OS-level confinement is made.
+            fd = os.open(root / filename, flags)
+        initial = os.fstat(fd)
+        if not stat.S_ISREG(initial.st_mode):
+            _fail("INPUT_SYMLINK_OR_SPECIAL")
+        if initial.st_size > limit:
             _fail("RAW_SIZE_EXCEEDED")
-        data = stream.read(limit + 1)
-        if len(data) > limit:
-            _fail("RAW_SIZE_EXCEEDED")
-        if os.fstat(stream.fileno()).st_size != size:
+        pieces = []
+        remaining = limit
+        while remaining >= 0:
+            chunk = os.read(fd, min(8192, remaining + 1))
+            if not chunk:
+                break
+            if len(chunk) > remaining:
+                _fail("RAW_SIZE_EXCEEDED")
+            pieces.append(chunk)
+            remaining -= len(chunk)
+        final = os.fstat(fd)
+        if (initial.st_dev, initial.st_ino, initial.st_size, initial.st_mtime_ns) != (
+            final.st_dev, final.st_ino, final.st_size, final.st_mtime_ns
+        ):
             _fail("INPUT_CHANGED")
-    return data
-
+        data = b"".join(pieces)
+        if len(data) != initial.st_size:
+            _fail("INPUT_CHANGED")
+        return data
+    except OSError as exc:
+        if exc.errno in (errno.ELOOP, errno.EISDIR, errno.ENOTDIR, errno.ENOENT, errno.EACCES):
+            _fail("INPUT_SYMLINK_OR_SPECIAL")
+        raise
+    finally:
+        if fd is not None:
+            os.close(fd)
+        if root_fd is not None:
+            os.close(root_fd)
 
 def _csv_canonical(data):
     if len(data) > MAX_LOCAL_FILE_BYTES or b"\r" in data or b"\x00" in data:
@@ -74,6 +103,13 @@ def _csv_canonical(data):
     except UnicodeError:
         _fail("CSV_INVALID_ENCODING")
     if not text.endswith("\n") or text.startswith("\ufeff"):
+        _fail("CSV_INVALID_ENCODING")
+    # Bound individual physical rows before the CSV parser materializes fields.
+    # Synthetic-candle4h-v1 numeric data never needs CSV quoting or multiline rows.
+    for rawline in data.split(b"\n"):
+        if len(rawline) > 4096:
+            _fail("ROW_TOO_LARGE")
+    if b'"' in data:
         _fail("CSV_INVALID_ENCODING")
     try:
         rows = list(csv.reader(io.StringIO(text, newline=""), strict=True))
@@ -130,7 +166,11 @@ def _zip_csv(data):
                 _fail("ZIP_UNSAFE_MEMBER")
             if member.flag_bits & 1 or member.compress_type not in (zipfile.ZIP_STORED,):
                 _fail("ZIP_UNSUPPORTED_COMPRESSION")
-            if member.file_size > MAX_LOCAL_FILE_BYTES:
+            if member.file_size > MAX_LOCAL_FILE_BYTES or member.compress_size > MAX_LOCAL_FILE_BYTES:
+                _fail("ZIP_EXPANSION_EXCEEDED")
+            if member.compress_size == 0 and member.file_size > 0:
+                _fail("ZIP_EXPANSION_EXCEEDED")
+            if member.compress_size > 0 and member.file_size > member.compress_size * 100:
                 _fail("ZIP_EXPANSION_EXCEEDED")
             with archive.open(member) as entry:
                 unpacked = entry.read(MAX_LOCAL_FILE_BYTES + 1)
@@ -177,10 +217,12 @@ def write_report_new(output, result):
     dest = Path(output)
     if not dest.is_absolute() or dest.is_symlink() or not dest.parent.is_dir():
         _fail("REPORT_PATH_COLLISION")
+    if dest.parent.is_symlink() or any(parent.is_symlink() for parent in dest.parent.parents):
+        _fail("REPORT_PATH_COLLISION")
     payload = (json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf8")
     try:
         with dest.open("xb") as stream:
             stream.write(payload)
-    except FileExistsError:
+    except (FileExistsError, IsADirectoryError):
         _fail("REPORT_PATH_COLLISION")
     return sha256(payload)
