@@ -69,7 +69,7 @@ def decision_record():
         "classification": "INTERNAL_AI_ASSISTED_SCOPE_REVIEW_NOT_SECURITY_CERTIFICATION",
         "decision": "SYNTHETIC_ONLY_SCOPE_PROPOSED_EXPLICIT_IMPLEMENTATION_APPROVAL_MISSING",
         "proposed_files": list(FILES_AFTER_SEPARATE_APPROVAL),
-        "proposed_scope": SCOPE,
+        "proposed_scope": {key: list(value) if isinstance(value, tuple) else value for key, value in SCOPE.items()},
         "prohibited": list(EXCLUSIONS),
         "owner_and_security_evidence": MISSING_EVIDENCE,
         "permissions": PERMISSIONS,
