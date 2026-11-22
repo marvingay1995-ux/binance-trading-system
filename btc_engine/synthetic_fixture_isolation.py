@@ -58,8 +58,8 @@ def capped_synthetic_zip_read(data, expanded_cap=128):
 def make_unsupported_method_zip():
     """Set the method to 99 in both ZIP headers of a tiny synthetic archive."""
     raw = bytearray(_zip_bytes(BASE_CSV))
-    local = raw.find(b"PK\\x03\\x04")
-    central = raw.find(b"PK\\x01\\x02")
+    local = raw.find(b"PK\x03\x04")
+    central = raw.find(b"PK\x01\x02")
     if local < 0 or central < 0 or len(raw) > MAX_SAMPLE_BYTES:
         raise ValueError("invalid tiny synthetic seed")
     # ZIP local method is at offset 8, central directory method at offset 10.
