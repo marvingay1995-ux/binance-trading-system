@@ -5,8 +5,6 @@ import json
 from .verifier_implementation_decision import decision_record as previous_decision
 from .synthetic_fixture_spec import contract_record as fixture_spec
 from .synthetic_fixture_generator import fixture_bytes, LABEL
-from .synthetic_fixture_coverage import coverage_report
-from .synthetic_fixture_isolation import remaining_case_report
 
 VERSION = "BTC-039-v1"
 REVIEWED_MAIN_SHA = "da139ff65d447d804359a7c1c82ebdb2e6fb0efe"
@@ -46,16 +44,10 @@ def readiness_record():
         raise PermissionError("previous NO-GO decision changed")
     if any(earlier["permissions"].values()) or any(DENIALS.values()):
         raise PermissionError("unapproved capability found")
-    parent = coverage_report()
-    child = remaining_case_report()
-    if len(parent["materialized_fixture_cases"]) != 12 or len(parent["context_only_unexecuted"]) != 6:
-        raise ValueError("expected 12+6 synthetic coverage contract")
-    if len(child["cases"]) != 6:
-        raise ValueError("incomplete bounded probes")
-    if child["security_verdict"] != "SYNTHETIC_HARNESS_CHECKS_ONLY_VERIFIER_NOT_IMPLEMENTED":
-        raise ValueError("synthetic tests misrepresented")
     if len(fixture_bytes()) != 9:
         raise ValueError("baseline fixture inventory changed")
+    # BTC-037/038 are NOT on main. Their results are external observed
+    # GitHub branch evidence and must not be presented as main imports/tests.
     spec = fixture_spec()
     canonical = json.dumps(spec, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
     return {
