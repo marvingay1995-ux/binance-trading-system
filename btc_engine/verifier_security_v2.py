@@ -165,7 +165,7 @@ def remediation_report():
         "h01_v2_spec_sha256": H01_SPEC_SHA,
         "remediations": REMEDIATIONS,
         "error_codes_proposed": ERROR_CODES,
-        "test_cases_proposed_not_executed": TEST_CASES,
+        "test_cases_proposed_not_executed": {key: list(value) for key, value in TEST_CASES.items()},
         "evidence_and_authorization": EXPECTED_STATUS,
         "decision": "CONTRACT_IMPROVED_NO_VERIFIER_IMPLEMENTATION_AUTHORIZED",
         "limitations": [
