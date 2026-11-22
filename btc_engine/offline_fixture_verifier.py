@@ -11,6 +11,7 @@ import io
 import json
 import os
 import errno
+import secrets
 from pathlib import Path
 import stat
 import zipfile
@@ -213,16 +214,69 @@ def verify_generated(root, filename):
 
 
 def write_report_new(output, result):
-    """Exclusively create a report file; never overwrite."""
+    """Exclusive, staged synthetic report publication.
+
+    POSIX: write/fsync hidden temp in a parent directory descriptor, then
+    hard-link it to a new destination name (no overwrite), unlink staging.
+    This is NOT a hardened OS sandbox or race-proof ancestor validation.
+    Windows keeps the original, less-assured exclusive-create behavior.
+    """
     dest = Path(output)
-    if not dest.is_absolute() or dest.is_symlink() or not dest.parent.is_dir():
-        _fail("REPORT_PATH_COLLISION")
-    if dest.parent.is_symlink() or any(parent.is_symlink() for parent in dest.parent.parents):
+    if (not dest.is_absolute() or dest.name in ("", ".", "..")
+            or not dest.parent.is_dir() or dest.parent.is_symlink()
+            or any(parent.is_symlink() for parent in dest.parent.parents)
+            or dest.is_symlink()):
         _fail("REPORT_PATH_COLLISION")
     payload = (json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf8")
+    if os.name != "posix":
+        try:
+            with dest.open("xb") as stream:
+                stream.write(payload)
+        except (FileExistsError, IsADirectoryError):
+            _fail("REPORT_PATH_COLLISION")
+        except OSError:
+            _fail("REPORT_IO_ERROR")
+        return sha256(payload)
+
+    directory_fd = None
+    staging_fd = None
+    staging_name = None
     try:
-        with dest.open("xb") as stream:
-            stream.write(payload)
-    except (FileExistsError, IsADirectoryError):
+        directory_fd = os.open(dest.parent, os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0))
+        if not stat.S_ISDIR(os.fstat(directory_fd).st_mode):
+            _fail("REPORT_PATH_COLLISION")
+        staging_name = ".btc053-" + secrets.token_hex(12) + ".tmp"
+        staging_fd = os.open(
+            staging_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600, dir_fd=directory_fd,
+        )
+        remaining = memoryview(payload)
+        while remaining:
+            written = os.write(staging_fd, remaining[:8192])
+            if written <= 0:
+                _fail("REPORT_IO_ERROR")
+            remaining = remaining[written:]
+        os.fsync(staging_fd)
+        os.close(staging_fd)
+        staging_fd = None
+        # Hard-link creation is atomic and refuses an existing destination,
+        # including a symbolic link, while preserving staged file contents.
+        os.link(staging_name, dest.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd, follow_symlinks=False)
+        os.unlink(staging_name, dir_fd=directory_fd)
+        staging_name = None
+        return sha256(payload)
+    except FileExistsError:
         _fail("REPORT_PATH_COLLISION")
-    return sha256(payload)
+    except OSError:
+        _fail("REPORT_IO_ERROR")
+    finally:
+        if staging_fd is not None:
+            os.close(staging_fd)
+        if directory_fd is not None:
+            if staging_name is not None:
+                try:
+                    os.unlink(staging_name, dir_fd=directory_fd)
+                except FileNotFoundError:
+                    pass
+            os.close(directory_fd)
