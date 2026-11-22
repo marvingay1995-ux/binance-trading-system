@@ -67,7 +67,7 @@ class SyntheticOnlyOfflineVerifierTests(unittest.TestCase):
             write_report_new(str(dest), report)
 
     def test_offline_no_network_process_for_known_fixtures(self):
-        with patch("socket.socket", side_effect=AssertionError("network forbidden")), \\
+        with patch("socket.socket", side_effect=AssertionError("network forbidden")), \
              patch("subprocess.Popen", side_effect=AssertionError("process forbidden")):
             verify_generated(str(self.root), "golden.csv")
             verify_generated(str(self.root), "golden.zip")
