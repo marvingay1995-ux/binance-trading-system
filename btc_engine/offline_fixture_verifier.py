@@ -49,10 +49,12 @@ def _safe_read(root, filename, limit=MAX_LOCAL_FILE_BYTES):
         fd = os.open(candidate, flags)
     except OSError:
         _fail("INPUT_SYMLINK_OR_SPECIAL")
+    # Check the opened descriptor before wrapping as a buffered binary stream:
+    # fdopen() itself can fail on directories, leaking an uncategorized OSError.
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        _fail("INPUT_SYMLINK_OR_SPECIAL")
     with os.fdopen(fd, "rb") as stream:
-        mode = os.fstat(stream.fileno()).st_mode
-        if not stat.S_ISREG(mode):
-            _fail("INPUT_SYMLINK_OR_SPECIAL")
         size = os.fstat(stream.fileno()).st_size
         if size > limit:
             _fail("RAW_SIZE_EXCEEDED")
@@ -73,7 +75,10 @@ def _csv_canonical(data):
         _fail("CSV_INVALID_ENCODING")
     if not text.endswith("\n") or text.startswith("\ufeff"):
         _fail("CSV_INVALID_ENCODING")
-    rows = list(csv.reader(io.StringIO(text, newline=""), strict=True))
+    try:
+        rows = list(csv.reader(io.StringIO(text, newline=""), strict=True))
+    except csv.Error:
+        _fail("CSV_INVALID_ENCODING")
     if not rows or rows[0] != SCHEMA["column_order"]:
         _fail("CSV_FIELD_COUNT")
     if len(rows) != 3:
@@ -81,7 +86,9 @@ def _csv_canonical(data):
     canonical = []
     previous = None
     for raw in rows[1:]:
-        if len(raw) != 6 or any(len(item.encode("utf8")) > 4096 for item in raw):
+        if any(len(item.encode("utf8")) > 4096 for item in raw):
+            _fail("ROW_TOO_LARGE")
+        if len(raw) != 6:
             _fail("CSV_FIELD_COUNT")
         try:
             instant = int(raw[0])
@@ -101,6 +108,8 @@ def _csv_canonical(data):
             o, hi, lo, cl, vol = nums
             if min(o, hi, lo, cl) <= 0 or vol < 0 or lo > min(o, cl) or hi < max(o, cl):
                 _fail("OHLCV_INVALID")
+        except SyntheticVerificationError:
+            raise
         except (ValueError, InvalidOperation):
             _fail("OHLCV_INVALID")
         canonical.append(dict(zip(SCHEMA["column_order"], [instant] + [format(n.normalize(), "f").rstrip("0").rstrip(".") if n != n.to_integral() else format(n, "f") for n in nums])))
