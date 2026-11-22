@@ -88,7 +88,7 @@ def _safe_read(root, filename, limit=MAX_LOCAL_FILE_BYTES):
     except OSError as exc:
         if exc.errno in (errno.ELOOP, errno.EISDIR, errno.ENOTDIR, errno.ENOENT, errno.EACCES):
             _fail("INPUT_SYMLINK_OR_SPECIAL")
-        raise
+        _fail("INPUT_IO_ERROR")
     finally:
         if fd is not None:
             os.close(fd)
