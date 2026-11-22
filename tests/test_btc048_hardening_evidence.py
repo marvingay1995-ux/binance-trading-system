@@ -4,6 +4,7 @@ Testing controlled invented bytes and controlled instrumentation ONLY.
 Not a penetration test or evidence of secure general file processing.
 """
 import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -43,7 +44,7 @@ class BTC048HardeningEvidenceTests(unittest.TestCase):
         count = [0]
         def changed_stat(fd):
             item = real_fstat(fd)
-            if os.stat.S_ISREG(item.st_mode):
+            if stat.S_ISREG(item.st_mode):
                 count[0] += 1
                 if count[0] > 1:
                     # Python os.stat_result has no mtime_ns constructor arg;
