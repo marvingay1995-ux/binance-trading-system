@@ -49,10 +49,12 @@ def _safe_read(root, filename, limit=MAX_LOCAL_FILE_BYTES):
         fd = os.open(candidate, flags)
     except OSError:
         _fail("INPUT_SYMLINK_OR_SPECIAL")
+    # Check the opened descriptor before wrapping as a buffered binary stream:
+    # fdopen() itself can fail on directories, leaking an uncategorized OSError.
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        _fail("INPUT_SYMLINK_OR_SPECIAL")
     with os.fdopen(fd, "rb") as stream:
-        mode = os.fstat(stream.fileno()).st_mode
-        if not stat.S_ISREG(mode):
-            _fail("INPUT_SYMLINK_OR_SPECIAL")
         size = os.fstat(stream.fileno()).st_size
         if size > limit:
             _fail("RAW_SIZE_EXCEEDED")
@@ -106,6 +108,8 @@ def _csv_canonical(data):
             o, hi, lo, cl, vol = nums
             if min(o, hi, lo, cl) <= 0 or vol < 0 or lo > min(o, cl) or hi < max(o, cl):
                 _fail("OHLCV_INVALID")
+        except SyntheticVerificationError:
+            raise
         except (ValueError, InvalidOperation):
             _fail("OHLCV_INVALID")
         canonical.append(dict(zip(SCHEMA["column_order"], [instant] + [format(n.normalize(), "f").rstrip("0").rstrip(".") if n != n.to_integral() else format(n, "f") for n in nums])))
