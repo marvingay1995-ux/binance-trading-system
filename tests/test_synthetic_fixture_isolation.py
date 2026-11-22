@@ -61,8 +61,8 @@ class RemainingSyntheticSecurityProbeTests(unittest.TestCase):
             self.assertEqual(sentinel.read_text(), "keep")
 
     def test_s17_fixture_creation_does_not_use_socket_or_subprocess(self):
-        with patch("socket.socket", side_effect=AssertionError("network call forbidden")), \\
-             patch("socket.create_connection", side_effect=AssertionError("network connection forbidden")), \\
+        with patch("socket.socket", side_effect=AssertionError("network call forbidden")), \
+             patch("socket.create_connection", side_effect=AssertionError("network connection forbidden")), \
              patch("subprocess.Popen", side_effect=AssertionError("subprocess forbidden")):
             self.assertEqual(len(fixture_bytes()), 9)
             self.assertEqual(len(expanded_fixture_bytes()), 12)
