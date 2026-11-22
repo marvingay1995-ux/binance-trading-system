@@ -20,7 +20,7 @@ from btc_engine.offline_fixture_verifier import (
     verify_generated,
     write_report_new,
 )
-from btc_engine.synthetic_fixture_generator import BASE_CSV, generate
+from btc_engine.synthetic_fixture_generator import BASE_CSV, generate, _zip_bytes
 from btc_engine.synthetic_fixture_coverage import expanded_fixture_bytes, _make_zip
 from btc_engine.synthetic_fixture_isolation import make_unsupported_method_zip
 from btc_engine.synthetic_fixture_spec import JSONL_SHA256
@@ -61,7 +61,8 @@ class BTC045VerifierNegativeControls(unittest.TestCase):
                 self.reject("HASH_MISMATCH", verify_generated, str(self.root), "golden.zip")
 
     def test_direct_csv_field_limit(self):
-        self.reject("ROW_TOO_LARGE", _csv_canonical, expanded_fixture_bytes()["S06"])
+        oversized = BASE_CSV.replace(b",100,105,", b"," + b"9" * 4100 + b",105,", 1)
+        self.reject("ROW_TOO_LARGE", _csv_canonical, oversized)
 
     def test_direct_csv_rejects_invalid_ohlcv_and_timestamp(self):
         samples = expanded_fixture_bytes()
@@ -113,7 +114,12 @@ class BTC045VerifierNegativeControls(unittest.TestCase):
         samples = expanded_fixture_bytes()
         self.reject("ZIP_UNSAFE_MEMBER", _zip_csv, samples["S08"])
         self.reject("ZIP_UNSAFE_MEMBER", _zip_csv, samples["S09"])
-        self.reject("ZIP_BAD_CRC", _zip_csv, samples["S10"])
+        # Corrupt the CRC of an otherwise accepted single invented.csv member.
+        raw = bytearray(_zip_bytes(BASE_CSV))
+        position = raw.find(BASE_CSV[:20])
+        self.assertGreaterEqual(position, 0)
+        raw[position] ^= 1
+        self.reject("ZIP_BAD_CRC", _zip_csv, bytes(raw))
         self.reject("ZIP_BAD_CRC", _zip_csv, b"not-a-zip")
 
     def test_direct_zip_rejects_compression_and_multiple_members(self):
