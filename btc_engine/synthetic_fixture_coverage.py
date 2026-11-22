@@ -45,9 +45,9 @@ def expanded_fixture_bytes():
         "S02": BASE_CSV + second,
         "S03": BASE_CSV.replace(b"1778817600000", b"1778817600000001", 1),
         "S04": BASE_CSV.replace(b",100,105,", b",NaN,105,", 1),
-        "S05": BASE_CSV.replace(b",103,1.5\\n", b",103,-1.5\\n", 1),
-        "S06": csv_header + b"1778803200000," + b"9"*4100 + b",105,99,103,1.5\\n",
-        "S07": BASE_CSV.replace(b",103,1.5\\n", b",104,1.5\\n", 1),
+        "S05": BASE_CSV.replace(b",103,1.5\n", b",103,-1.5\n", 1),
+        "S06": csv_header + b"1778803200000," + b"9"*4100 + b",105,99,103,1.5\n",
+        "S07": BASE_CSV.replace(b",103,1.5\n", b",104,1.5\n", 1),
         "S08": _make_zip(BASE_CSV, name="../escape.csv"),
         "S09": _make_zip(BASE_CSV, name="synthetic.csv", symlink=True),
         "S10": _corrupt_crc_zip(BASE_CSV),
@@ -133,7 +133,7 @@ def main():
             stream.write(data)
     with (output / "manifest.json").open("x", encoding="utf-8") as stream:
         json.dump(report, stream, sort_keys=True, indent=2)
-        stream.write("\\n")
+        stream.write("\n")
     print(json.dumps({"scenario_count": len(FAULT_CASES), "materialized": len(cases),
                       "context_only": len(CONTEXT_ONLY), "security_verdict": report["security_verdict"]},
                      sort_keys=True))
