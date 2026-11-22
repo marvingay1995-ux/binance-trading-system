@@ -61,16 +61,21 @@ def probe_generated(root, filename, *, timeout=TIMEOUT_SECONDS):
     # a hygiene measure, NOT a security boundary against a malicious child.
     env = {"PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1"}
     args = [sys.executable, "-I", "-S", "-c", _CHILD, str(repo_root), str(path), filename]
-    completed = subprocess.run(
-        args,
-        cwd=repo_root,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-        preexec_fn=_posix_resource_limits if sys.platform.startswith("linux") else None,
-    )
+    try:
+        completed = subprocess.run(
+            args,
+            cwd=repo_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            preexec_fn=_posix_resource_limits if sys.platform.startswith("linux") else None,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("SYNTHETIC_CHILD_TIMEOUT") from None
+    except OSError:
+        raise RuntimeError("SYNTHETIC_CHILD_START_FAILED") from None
     if completed.returncode != 0:
         raise RuntimeError("SYNTHETIC_CHILD_FAILED")
     try:
