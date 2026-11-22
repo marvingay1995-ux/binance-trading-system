@@ -24,7 +24,7 @@ No model-driven claim of independent human security assurance is made. The revie
 
 The proposed CSV parser is deliberately *not built*. The BTC-032 module records target behavior, not enforcement, and the new tests validate only the declaration schema. A test passing here does not mean ZIP safety, data integrity, authentication, memory caps or an enforceable deadline have been proven.
 
-Some proposed error codes and fixture definitions remain design choices requiring review. In particular, the row-count boundary case needs its own distinct future error code rather than reusing `RAW_SIZE_EXCEEDED`; and the compound ZIP-entry test should be split into targeted single-fault scenarios during subsequent fixture implementation. Treat these as **open review issues**, not silently fixed implementation details.
+Some proposed error codes and fixture definitions remain design choices requiring review. The row-count boundary case now has a distinct proposed `RECORD_COUNT_EXCEEDED` error code. The compound ZIP-entry test still needs targeted single-fault scenarios during subsequent fixture implementation. Treat these as **open review issues**, not silently fixed implementation details.
 
 ## Proposed verifiable acceptance criteria
 
