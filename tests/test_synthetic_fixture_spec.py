@@ -33,7 +33,7 @@ class SyntheticFixtureSpecTests(unittest.TestCase):
     def test_bounds_are_still_proposed(self):
         self.assertEqual(BOUNDS["raw_bytes"], 25_000_000)
         self.assertEqual(BOUNDS["zip_entries"], 1)
-        self.assertIn("not_enforced", contract_record())
+        self.assertIn("proposed_bounds_not_enforced", contract_record())
 
     def test_all_implementation_permissions_false(self):
         self.assertTrue(AUTHORIZATION["fixture_format_contract_recorded"])
