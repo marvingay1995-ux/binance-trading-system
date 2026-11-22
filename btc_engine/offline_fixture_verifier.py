@@ -73,7 +73,10 @@ def _csv_canonical(data):
         _fail("CSV_INVALID_ENCODING")
     if not text.endswith("\n") or text.startswith("\ufeff"):
         _fail("CSV_INVALID_ENCODING")
-    rows = list(csv.reader(io.StringIO(text, newline=""), strict=True))
+    try:
+        rows = list(csv.reader(io.StringIO(text, newline=""), strict=True))
+    except csv.Error:
+        _fail("CSV_INVALID_ENCODING")
     if not rows or rows[0] != SCHEMA["column_order"]:
         _fail("CSV_FIELD_COUNT")
     if len(rows) != 3:
@@ -81,7 +84,9 @@ def _csv_canonical(data):
     canonical = []
     previous = None
     for raw in rows[1:]:
-        if len(raw) != 6 or any(len(item.encode("utf8")) > 4096 for item in raw):
+        if any(len(item.encode("utf8")) > 4096 for item in raw):
+            _fail("ROW_TOO_LARGE")
+        if len(raw) != 6:
             _fail("CSV_FIELD_COUNT")
         try:
             instant = int(raw[0])
