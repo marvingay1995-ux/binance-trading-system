@@ -50,6 +50,7 @@ class BTC069OfflineSyntheticJSONTests(unittest.TestCase):
     def test_duplicate_missing_candle_fails(self):
         data=json.loads(SYNTHETIC_FIXTURES["1h"])
         data[1][0]=data[0][0]
+        data[1][6]=data[1][0]+PERIODS["1h"]-1
         with self.assertRaisesRegex(ValueError,"MISSING_DUPLICATED_OR_UNSORTED_CANDLE"):
             _validate_json_klines(json.dumps(data).encode(),"1h")
 
