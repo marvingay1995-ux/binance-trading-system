@@ -9,6 +9,7 @@ import json
 import math
 from datetime import datetime, timezone
 
+from .r1_pinned_fixture_integrity import assert_registered_invented_bytes
 from .r1_evidence_reconciliation import reconcile_decision
 from .verifier_implementation_decision import decision_record as historic
 
@@ -104,17 +105,21 @@ def review_frozen_fixture(interval, supplied_bytes=None):
     if interval not in PERIODS:
         raise ValueError("UNAPPROVED_INTERVAL")
     expected = SYNTHETIC_FIXTURES[interval]
+    # Reject in-process fixture registry substitution before trusting defaults.
+    assert_registered_invented_bytes(interval, expected)
     if supplied_bytes is None:
         supplied_bytes = expected
     if type(supplied_bytes) is not bytes or len(supplied_bytes) > MAX_PAYLOAD_BYTES:
         raise PermissionError("NOT_A_FROZEN_SYNTHETIC_FIXTURE")
-    if hashlib.sha256(supplied_bytes).digest() != hashlib.sha256(expected).digest():
-        raise PermissionError("NOT_A_FROZEN_SYNTHETIC_FIXTURE")
+    try:
+        assert_registered_invented_bytes(interval, supplied_bytes)
+    except PermissionError:
+        raise PermissionError("NOT_A_FROZEN_SYNTHETIC_FIXTURE") from None
     opens = _validate_json_klines(supplied_bytes, interval)
     return {
         "fixture": interval,
         "synthetic_only": True,
-        "bytes_sha256": FIXTURE_SHA256[interval],
+        "bytes_sha256": assert_registered_invented_bytes(interval, supplied_bytes),
         "byte_count": len(supplied_bytes),
         "candle_count": len(opens),
         "first_open_utc": datetime.fromtimestamp(opens[0] / 1000, timezone.utc).isoformat(),
