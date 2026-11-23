@@ -8,6 +8,7 @@ import json
 from datetime import datetime, timezone
 from types import MappingProxyType
 
+from .r1_pinned_fixture_integrity import assert_registered_invented_bytes
 from .r1_offline_synthetic_json import (
     PERIODS, SYNTHETIC_FIXTURES, _validate_json_klines, authorization_record,
 )
@@ -40,6 +41,7 @@ def invented_response(interval):
     if interval not in PERIODS:
         raise ValueError("INVALID_INTERVAL")
     body = SYNTHETIC_FIXTURES[interval]
+    assert_registered_invented_bytes(interval, body)
     return {"status": 200,
             "headers": {"content-type": "application/json",
                         "content-length": str(len(body))},
@@ -66,6 +68,11 @@ def review_invented_response(interval, envelope=None, *, as_of_ms=SYNTHETIC_AS_O
         raise ValueError("INVALID_SYNTHETIC_BODY")
     _validated_headers(envelope["headers"], len(body))
     expected = SYNTHETIC_FIXTURES[interval]
+    assert_registered_invented_bytes(interval, expected)
+    try:
+        assert_registered_invented_bytes(interval, body)
+    except PermissionError:
+        raise PermissionError("UNREGISTERED_BODY_DENIED") from None
     if hashlib.sha256(body).digest() != hashlib.sha256(expected).digest():
         raise PermissionError("UNREGISTERED_BODY_DENIED")
     opens = _validate_json_klines(body, interval)

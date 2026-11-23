@@ -37,7 +37,7 @@ class BTC072SyntheticBoundaryReviewTests(unittest.TestCase):
         self.assertTrue(all(x["evidence"] and x["resolution"] for x in FINDINGS))
         self.assertTrue(any(x["severity"]=="BLOCKING" for x in FINDINGS))
 
-    def test_mutable_fixture_registry_is_a_real_boundary_gap(self):
+    def test_mutable_fixture_registry_substitution_is_now_rejected(self):
         # Internal mutation is possible if code in this process already has
         # write access. This does not mean a remote actor can mutate it.
         original=SYNTHETIC_FIXTURES["1h"]
@@ -48,10 +48,13 @@ class BTC072SyntheticBoundaryReviewTests(unittest.TestCase):
         altered[0][4]="102"
         substitute=json.dumps(altered,separators=(",",":")).encode("ascii")
         with patch.dict(SYNTHETIC_FIXTURES,{"1h":substitute}):
-            result=review_invented_response("1h",invented_response("1h"))
-            self.assertEqual(result["body_sha256"],
-                             __import__("hashlib").sha256(substitute).hexdigest())
-            self.assertFalse(result["real_data_verified"])
+            with self.assertRaisesRegex(PermissionError, "FROZEN_SYNTHETIC_BYTES_MISMATCH"):
+                invented_response("1h")
+            with self.assertRaisesRegex(PermissionError, "FROZEN_SYNTHETIC_BYTES_MISMATCH"):
+                review_invented_response("1h")
+            from btc_engine.r1_offline_synthetic_json import review_frozen_fixture
+            with self.assertRaisesRegex(PermissionError, "FROZEN_SYNTHETIC_BYTES_MISMATCH"):
+                review_frozen_fixture("1h")
         self.assertEqual(SYNTHETIC_FIXTURES["1h"],original)
 
     def test_old_approved_fixture_only_cannot_be_external_admission(self):
